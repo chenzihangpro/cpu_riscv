@@ -1,7 +1,10 @@
 `define RST_ENA 1'b0
 `define RST_DISA 1'b1
 `define CPU_RST_ADDR 32'b0
+`define HOLD_ENA 1'b1
+`define HOLD_DISA 1'b0
 `define JUMP_ENA 1'b1
+`define JUMP_DISA 1'b0
 `define WR_ENA 1'b1
 `define WR_DISA 1'b0
 
@@ -14,6 +17,7 @@
 
 `define INT_FLAG_BUS 7:0
 `define INT_NONE 8'h0
+`define INT_ASSERT 1'b1
 
 `define INSTR_BUS 31:0
 `define INSTR_ADDR_BUS 31:0
@@ -22,7 +26,10 @@
 `define REG_BUS 31:0
 
 `define MEM_ADDR_BUS 31:0
-
+`define MEM_BUS 31:0
+/****************************总线****************************/
+`define RIB_NREQ 1'b0
+`define RIB_REQ 1'b1
 /*****************************id****************************/
 
 //I型指令
