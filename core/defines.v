@@ -13,6 +13,7 @@
 
 `define HOLD_FLAG_BUS 2:0       //流水线暂停标志
 `define HOLD_IF 3'b010          //IF流水线暂停的条件
+`define HOLD_ID 3'b011
 
 
 `define INT_FLAG_BUS 7:0
@@ -95,7 +96,24 @@
 `define INSTR_CSRRSI 3'b110
 `define INSTR_CSRRCI 3'b111
 
+/*****************************ctrl****************************/
+`define HOLD_NONE 3'b000
+`define HOLD_PC 3'b001
 
+/*****************************csr****************************/
+
+
+
+
+/*****************************clint****************************/
+`define INT_BUS 7:0
+`define INT_RET 8'hff
+`define INT_TIMER0 8'b00000001
+`define INT_TIMER0_ENTRY_ADDR 32'h4
+/*****************************add some defines****************************/
+`define DOUBLE_REG_BUS 63:0
+`define TRUE 1'b1
+`define FALSE 1'b0
 
 
 
