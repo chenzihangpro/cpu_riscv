@@ -260,7 +260,7 @@ module ex(
                         mem_wdata_o = `ZERO_WORD;
                         mem_raddr_o = `ZERO_WORD;
                         mem_waddr_o = `ZERO_WORD;
-                        mem_wr = WR_DISA;
+                        mem_wr = `WR_DISA;
                         //add和sub
                         if(instr_i[30] == 1'b0) begin
                             reg_wdata = op1_add_op2_res;
@@ -363,98 +363,23 @@ module ex(
             end
             `INSTR_TYPE_L:begin
                 case(func3)
-                    //字节加载，取一个字节经符号扩展后写入x[rd]
-                    `INSTR_LB:begin
+                    // 字节加载
+                    `INSTR_LB, `INSTR_LH, `INSTR_LW, `INSTR_LBU, `INSTR_LHU:begin
+                        // 在五级流水线的EX阶段，只计算内存地址并请求访问内存
+                        // 不再处理内存数据的读取和符号扩展(移到MEM阶段)
                         jump_flag = `JUMP_DISA;
                         hold_flag = `HOLD_DISA;
                         jump_addr = `ZERO_WORD;
+                        
+                        // 生成内存读请求
                         mem_wdata_o = `ZERO_WORD;
                         mem_waddr_o = `ZERO_WORD;
                         mem_wr = `WR_DISA;
                         mem_req = `RIB_REQ;
-                        mem_raddr_o = op1_add_op2_res;
-                        case(mem_raddr_index)
-                            2'b00:begin
-                                reg_wdata = {{24{mem_rdata_i[7]}},mem_rdata_i[7:0]};
-                            end
-                            2'b01:begin
-                                reg_wdata = {{24{mem_rdata_i[15]}},mem_rdata_i[15:8]};
-                            end
-                            2'b10:begin
-                                reg_wdata = {{24{mem_rdata_i[23]}},mem_rdata_i[23:16]};
-                            end
-                            default:begin
-                                reg_wdata = {{24{mem_rdata_i[31]}},mem_rdata_i[31:24]};
-                            end
-                        endcase
-                    end
-                    //半字加载，取两个字节，符号扩展
-                    `INSTR_LH:begin
-                        jump_flag = `JUMP_DISA;
-                        hold_flag = `HOLD_DISA;
-                        jump_addr = `ZERO_WORD;
-                        mem_wdata_o = `ZERO_WORD;
-                        mem_waddr_o = `ZERO_WORD;
-                        mem_wr = `WR_DISA;
-                        mem_req = `RIB_REQ;
-                        mem_raddr_o = op1_add_op2_res;
-                        if(mem_raddr_index == 2'b0)begin
-                            reg_wdata = {{16{mem_rdata_i[15]}},mem_rdata_i[15:0]};
-                        end else begin
-                            reg_wdata = {{16{mem_rdata_i[31]}},mem_rdata_i[31:16]};
-                        end
-                    end
-                    //字加载，取4个字节，符号扩展
-                    `INSTR_LW:begin
-                        jump_flag = `JUMP_DISA;
-                        hold_flag = `HOLD_DISA;
-                        jump_addr = `ZERO_WORD;
-                        mem_wdata_o = `ZERO_WORD;
-                        mem_waddr_o = `ZERO_WORD;
-                        mem_wr = `WR_DISA;
-                        mem_req = `RIB_REQ;
-                        mem_raddr_o = op1_add_op2_res;
-                        reg_wdata = mem_rdata_i;
-                    end
-                    //字节加载无符号扩展
-                    `INSTR_LBU:begin
-                        jump_flag = `JUMP_DISA;
-                        hold_flag = `HOLD_DISA;
-                        jump_addr = `ZERO_WORD;
-                        mem_wdata_o = `ZERO_WORD;
-                        mem_waddr_o = `ZERO_WORD;
-                        mem_wr = `WR_DISA;
-                        mem_req = `RIB_REQ;
-                        mem_raddr_o = op1_add_op2_res;
-                        case(mem_raddr_index)
-                            2'b00:begin
-                                reg_wdata = {24'h0,mem_rdata_i[7:0]};
-                            end
-                            2'b01:begin
-                                reg_wdata = {24'h0,mem_rdata_i[15:8]};
-                            end
-                            2'b10:begin
-                                reg_wdata = {24'h0,mem_rdata_i[23:16]};
-                            end
-                            default:begin
-                                reg_wdata = {24'h0,mem_rdata_i[31:24]};
-                            end
-                        endcase
-                    end
-                    `INSTR_LHU:begin
-                        jump_flag = `JUMP_DISA;
-                        hold_flag = `HOLD_DISA;
-                        jump_addr = `ZERO_WORD;
-                        mem_wdata_o = `ZERO_WORD;
-                        mem_waddr_o = `ZERO_WORD;
-                        mem_wr = `WR_DISA;
-                        mem_req = `RIB_REQ;
-                        mem_raddr_o = op1_add_op2_res;
-                        if(mem_raddr_index == 2'b0) begin
-                            reg_wdata = {16'h0,mem_rdata_i[15:0]};
-                        end else begin
-                            reg_wdata = {16'h0,mem_rdata_i[31:16]};
-                        end
+                        mem_raddr_o = op1_add_op2_res;  // 计算内存地址: rs1 + offset
+                        
+                        // 传递给MEM阶段的寄存器写信息
+                        reg_wdata = reg_wdata_i;  // 寄存器写数据在MEM阶段确定，这里只传递
                     end
                     default:begin
                         jump_flag = `JUMP_DISA;
@@ -527,7 +452,7 @@ module ex(
                         hold_flag = `HOLD_DISA;
                         jump_addr = `ZERO_WORD;
                         mem_wdata_o = `ZERO_WORD;
-                        mem_waddr_o = `ZERO_WORD
+                        mem_waddr_o = `ZERO_WORD;
                         mem_wr = `WR_DISA;
                         mem_raddr_o = `ZERO_WORD;
                         reg_wdata = `ZERO_WORD;

@@ -86,6 +86,7 @@
 `define INSTR_AUIPC 7'b0010111
 //NOP 不执行任何操作，只执行PC递增
 `define INSTR_NOP_OP 7'b0000001
+`define INSTR_NO_OPERATION 32'h00000001 //不进行任何操作的指令
 //fence
 `define INSTR_FENCE 7'b0001111
 //ecall ebreak
@@ -129,4 +130,4 @@
 
 
 
-`define INSTR_NO_OPERATION 32'h00000001 //不进行任何操作的指令
+

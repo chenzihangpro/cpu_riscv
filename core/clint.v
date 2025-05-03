@@ -61,19 +61,21 @@ assign hold_flag_o = (hold_flag_i == `HOLD_ENA)
 
 //—— 中断仲裁（组合逻辑） ——//
 always @(*) begin
+    // 默认状态
+    int_state = S_INT_IDLE;
+    
     if (rst == `RST_ENA) begin
         int_state = S_INT_IDLE;
-    end else if (instr == `INSTR_ECALL || instr == `INSTR_EBREAK) begin
-        // 同步异常
+    end 
+    // 按优先级顺序排列条件
+    else if (instr == `INSTR_ECALL || instr == `INSTR_EBREAK) begin
         int_state = S_INT_SYNC_ASSERT;
-    end else if (int_flag != `INT_NONE && global_int_en == `TRUE) begin
-        // 异步中断
+    end 
+    else if (int_flag != `INT_NONE && global_int_en == `TRUE) begin
         int_state = S_INT_ASYNC_ASSERT;
-    end else if (instr == `INSTR_MRET) begin
-        // 中断返回
+    end 
+    else if (instr == `INSTR_MRET) begin
         int_state = S_INT_MRET;
-    end else begin
-        int_state = S_INT_IDLE;
     end
 end
 

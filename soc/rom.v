@@ -1,24 +1,19 @@
 `include "../core/defines.v"
-
 module rom(
     input wire clk,
     input wire rst,
-    input wire[`MemAddrBus] addr_i,
-    output reg[`MemBus] data_o
+    input wire[`MEM_ADDR_BUS] addr_i,
+    output reg[`MEM_BUS] data_o
 );
-
-    reg[`MemBus] _rom[0:`RomNum - 1];
-
+    reg[`MEM_BUS] rom[0:`ROM_NUM - 1];
     initial begin
-        $readmemh("rom_init.hex", _rom);  // 加载指令程序
+        $readmemh("rom_init.hex", rom);  // 加载指令程序
     end
-
     always @(*) begin
-        if (rst == `RstEnable) begin
-            data_o = `ZeroWord;
+        if (rst == `RST_ENA) begin
+            data_o = `ZERO_WORD;
         end else begin
-            data_o = _rom[addr_i[31:2]];
+            data_o = rom[addr_i[31:2]];
         end
     end
-
 endmodule

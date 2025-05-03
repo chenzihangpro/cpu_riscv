@@ -1,4 +1,5 @@
-//—————————— gen_pipe_dff ——————————
+`include "../core/defines"
+//流水线寄存器生成模块
 module gen_pipe_dff #(
     parameter DW = 32
 ) (
@@ -10,7 +11,7 @@ module gen_pipe_dff #(
     output reg  [DW-1:0]     qout
 );
     always @(posedge clk) begin
-        if (!rst || hold_en)          // rst=0(有效) 或 flush=1
+        if (rst == `RST_ENA || hold_en)  // rst=0(有效) 或 flush=1
             qout <= def_val;
         else
             qout <= din;
