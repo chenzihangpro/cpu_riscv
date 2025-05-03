@@ -1,4 +1,4 @@
-include "defines.v"
+`include "defines.v"
 
 //ÒëÂëÄ£¿é
 module id(
@@ -50,7 +50,7 @@ module id(
     output reg[`INSTR_BUS] instr_o;
     output reg[`INSTR_ADDR_BUS] instr_addr_o;
     
-    output reg[`REG_BUS] reg1_rdata_i;
+    output reg[`REG_BUS] reg1_rdata_o;
     output reg[`REG_BUS] reg2_rdata_o;
     
     output reg reg_wr_o;
@@ -104,7 +104,7 @@ module id(
                 endcase
             end
             //RÐÍ
-            `INSTR_TYPE_R£ºbegin
+            `INSTR_TYPE_R:begin
                 if((func7 == 7'b0000000) || (func7 == 7'b0100000))begin
                     case(func3)
                         `INSTR_ADD_SUB,`INSTR_SLL,`INSTR_SLT,`INSTR_SLTU,`INSTR_XOR,`INSTR_SR,`INSTR_OR,`INSTR_AND:begin
@@ -194,7 +194,7 @@ module id(
                 reg1_raddr_o = `ZERO_REG;
                 reg2_raddr_o = `ZERO_REG;
                 op1_o = instr_addr_i;
-                op2_o = 32'h4
+                op2_o = 32'h4;
                 op1_jump_o = instr_addr_i;
                 op2_jump_o = {{12{instr_i[31]}},instr_i[19:12],instr_i[20],instr_i[30:21],1'b0};
             end
@@ -250,7 +250,7 @@ module id(
                 reg1_raddr_o = `ZERO_REG;
                 reg2_raddr_o = `ZERO_REG;
                 csr_raddr_o = {20'0,instr_i[31:20]};
-                csr_raddr_o = {20'0,instr_i[31:20]};
+                csr_waddr_o = {20'0,instr_i[31:20]};
                 case(func3)
                     `INSTR_CSRRW,`INSTR_CSRRS,`INSTR_CSRRC:begin
                         reg1_raddr_o = rs1;
@@ -264,7 +264,7 @@ module id(
                         reg2_raddr_o = `ZERO_REG;
                         reg_wr_o = `WR_ENA;
                         reg_waddr_o = rd;
-                        csr_wr_o = 'WR_ENA;
+                        csr_wr_o = `WR_ENA;
                     end
                     default:begin
                         reg_wr_o = `WR_DISA;

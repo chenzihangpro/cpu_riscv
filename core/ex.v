@@ -56,7 +56,7 @@ module ex(
     input wire[`MEM_ADDR_BUS] op2_jump_i;
     input wire[`MEM_BUS] mem_rdata_i;
     
-    output reg[`MEM_BUS] mem_waddr_o;
+    output reg[`MEM_BUS] mem_wdata_o;
     output reg[`MEM_ADDR_BUS] mem_raddr_o;
     output reg[`MEM_ADDR_BUS] mem_waddr_o;
     output wire mem_wr_o;
@@ -124,10 +124,10 @@ module ex(
     
     assign reg_wdata_o = reg_wdata;
     //响应中断时不写寄存器
-    assign reg_wr_o = (int_assert_i == `INT_ASSERT)? `WR_DISA: (reg_wr || div_wr);
+    assign reg_wr_o = (int_assert_i == `INT_ASSERT)? `WR_DISA: reg_wr;
     assign reg_waddr_o = reg_waddr;
     //响应中断不写内存
-    assign csr_wr_o = (int_assert_i == `INT_ASSERT)? `WR_DISA: mem_wr;
+    assign mem_wr_o = (int_assert_i == `INT_ASSERT)? `WR_DISA: mem_wr;
     //响应中断不向总线请求访问内存
     /***********************这里需要改，tiny用的是自定义的rib总线，要改为axi总线****************/
     assign mem_req_o = (int_assert_i == `INT_ASSERT)? `RIB_NREQ: mem_req;
@@ -191,7 +191,7 @@ module ex(
                         reg_wdata = op1_i ^ op2_i;
                     end
                     //或
-                    `INSTR_OR1:begin
+                    `INSTR_ORI:begin
                         jump_flag = `JUMP_DISA;
                         hold_flag = `HOLD_DISA;
                         jump_addr = `ZERO_WORD;
@@ -369,7 +369,7 @@ module ex(
                         hold_flag = `HOLD_DISA;
                         jump_addr = `ZERO_WORD;
                         mem_wdata_o = `ZERO_WORD;
-                        mem_waddr_o = `ZERO_WORD
+                        mem_waddr_o = `ZERO_WORD;
                         mem_wr = `WR_DISA;
                         mem_req = `RIB_REQ;
                         mem_raddr_o = op1_add_op2_res;
@@ -394,7 +394,7 @@ module ex(
                         hold_flag = `HOLD_DISA;
                         jump_addr = `ZERO_WORD;
                         mem_wdata_o = `ZERO_WORD;
-                        mem_waddr_o = `ZERO_WORD
+                        mem_waddr_o = `ZERO_WORD;
                         mem_wr = `WR_DISA;
                         mem_req = `RIB_REQ;
                         mem_raddr_o = op1_add_op2_res;
@@ -410,7 +410,7 @@ module ex(
                         hold_flag = `HOLD_DISA;
                         jump_addr = `ZERO_WORD;
                         mem_wdata_o = `ZERO_WORD;
-                        mem_waddr_o = `ZERO_WORD
+                        mem_waddr_o = `ZERO_WORD;
                         mem_wr = `WR_DISA;
                         mem_req = `RIB_REQ;
                         mem_raddr_o = op1_add_op2_res;
@@ -422,7 +422,7 @@ module ex(
                         hold_flag = `HOLD_DISA;
                         jump_addr = `ZERO_WORD;
                         mem_wdata_o = `ZERO_WORD;
-                        mem_waddr_o = `ZERO_WORD
+                        mem_waddr_o = `ZERO_WORD;
                         mem_wr = `WR_DISA;
                         mem_req = `RIB_REQ;
                         mem_raddr_o = op1_add_op2_res;
@@ -446,7 +446,7 @@ module ex(
                         hold_flag = `HOLD_DISA;
                         jump_addr = `ZERO_WORD;
                         mem_wdata_o = `ZERO_WORD;
-                        mem_waddr_o = `ZERO_WORD
+                        mem_waddr_o = `ZERO_WORD;
                         mem_wr = `WR_DISA;
                         mem_req = `RIB_REQ;
                         mem_raddr_o = op1_add_op2_res;
@@ -461,7 +461,7 @@ module ex(
                         hold_flag = `HOLD_DISA;
                         jump_addr = `ZERO_WORD;
                         mem_wdata_o = `ZERO_WORD;
-                        mem_waddr_o = `ZERO_WORD
+                        mem_waddr_o = `ZERO_WORD;
                         mem_wr = `WR_DISA;
                         mem_raddr_o = `ZERO_WORD;
                         reg_wdata = `ZERO_WORD;

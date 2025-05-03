@@ -1,235 +1,166 @@
 `include "defines.v"
 
-
 // core local interruptor module
 // 核心中断管理、仲裁模块
-module clint(
+module clint (
+    input  wire               clk,
+    input  wire               rst,
 
-    clk,
-    rst,
-    int_flag,
-    instr,
-    instr_addr_i,
-    jump_flag,
-    jump_addr,
-    hold_flag_i,
-    data_i,
-    csr_mtvec,
-    csr_mepc,
-    csr_mstatus,
-    global_int_en,
-    hold_flag_o,
-    we,
-    waddr,
-    raddr,
-    data_o,
-    int_addr,
-    int_assert
+    // 来自 core 和流水线
+    input  wire [`INT_BUS]    int_flag,         // 外部中断信号
+    input  wire [`INSTR_BUS]  instr,            // 当前指令
+    input  wire [`INSTR_ADDR_BUS] instr_addr_i, // 当前指令地址
+    input  wire               jump_flag,        // EX 级跳转标志
+    input  wire [`INSTR_ADDR_BUS] jump_addr,    // EX 级跳转地址
+    input  wire [`HOLD_FLAG_BUS] hold_flag_i,   // CTRL 级暂停标志
 
-    );
+    // 来自 CSR 寄存器
+    input  wire [`REG_BUS]    csr_mtvec,        // mtvec
+    input  wire [`REG_BUS]    csr_mepc,         // mepc
+    input  wire [`REG_BUS]    csr_mstatus,      // mstatus
+    input  wire               global_int_en,    // 全局中断使能
 
-    input wire clk,
-    input wire rst,
+    // 输出到 CTRL
+    output wire               hold_flag_o,      // 发往流水线暂停信号
+    // 输出到 CSR 寄存器
+    output reg                we,               // 写 CSR 使能
+    output reg [`MEM_ADDR_BUS] waddr,           // 写 CSR 地址
+    output reg [`MEM_ADDR_BUS] raddr,           // 读 CSR 地址（保留或扩展使用）
+    output reg [`REG_BUS]     data_o,           // 写 CSR 数据
+    // 输出到 EX 级
+    output reg [`INSTR_ADDR_BUS] int_addr,      // 中断跳转地址
+    output reg                int_assert        // 中断标志
+);
 
-    //来自核心core
-    input wire[`INT_BUS] int_flag,         // 中断输入信号
+//—— 中断状态定义（one-hot） ——//
+localparam S_INT_IDLE         = 4'b0001;
+localparam S_INT_SYNC_ASSERT  = 4'b0010;
+localparam S_INT_ASYNC_ASSERT = 4'b0100;
+localparam S_INT_MRET         = 4'b1000;
+reg [3:0] int_state;
 
-    //来自译码模块
-    input wire[`INSTR_BUS] instr,             // 指令内容
-    input wire[`INSTR_ADDR_BUS] instr_addr_i,    // 指令地址
+//—— CSR 写状态定义（one-hot） ——//
+localparam S_CSR_IDLE            = 5'b00001;
+localparam S_CSR_MSTATUS         = 5'b00010;
+localparam S_CSR_MEPC            = 5'b00100;
+localparam S_CSR_MSTATUS_MRET    = 5'b01000;
+localparam S_CSR_MCAUSE          = 5'b10000;
+reg [4:0] csr_state;
 
-    //来自执行模块
-    input wire jump_flag,
-    input wire[`INSTR_ADDR_BUS] jump_addr,
+// 保存中断返回地址和原因
+reg [`INSTR_ADDR_BUS] saved_mepc;
+reg [31:0] cause;
 
-    //来自控制模块
-    input wire[`HOLD_FLAG_BUS] hold_flag_i,  // 流水线暂停标志
+// 控制流水线暂停：外部暂停或内部中断序列进行中
+assign hold_flag_o = (hold_flag_i == `HOLD_ENA)
+                   || (int_state != S_INT_IDLE)
+                   || (csr_state != S_CSR_IDLE)
+                     ? `HOLD_ENA : `HOLD_DISA;
 
-    //来自CSR中断控制，仲裁模块
-    input wire[`REG_BUS] data_i,              // CSR寄存器输入数据
-    input wire[`REG_BUS] csr_mtvec,           // mtvec寄存器
-    input wire[`REG_BUS] csr_mepc,            // mepc寄存器
-    input wire[`REG_BUS] csr_mstatus,         // mstatus寄存器
+//三段式状态机
 
-    input wire global_int_en,              // 全局中断使能标志
+//—— 中断仲裁（组合逻辑） ——//
+always @(*) begin
+    if (rst == `RST_ENA) begin
+        int_state = S_INT_IDLE;
+    end else if (instr == `INSTR_ECALL || instr == `INSTR_EBREAK) begin
+        // 同步异常
+        int_state = S_INT_SYNC_ASSERT;
+    end else if (int_flag != `INT_NONE && global_int_en == `TRUE) begin
+        // 异步中断
+        int_state = S_INT_ASYNC_ASSERT;
+    end else if (instr == `INSTR_MRET) begin
+        // 中断返回
+        int_state = S_INT_MRET;
+    end else begin
+        int_state = S_INT_IDLE;
+    end
+end
 
-    // to ctrl
-    output wire hold_flag_o,                 // 流水线暂停标志
-
-    // to csr_reg
-    output reg we,                         // 写CSR寄存器标志
-    output reg[`MEM_ADDR_BUS] waddr,         // 写CSR寄存器地址
-    output reg[`MEM_ADDR_BUS] raddr,         // 读CSR寄存器地址
-    output reg[`REG_BUS] data_o,              // 写CSR寄存器数据
-
-    // to ex
-    output reg[`INSTR_ADDR_BUS] int_addr,     // 中断入口地址
-    output reg int_assert                  // 中断标志
-
-    // 中断状态定义
-    localparam S_INT_IDLE            = 4'b0001;
-    localparam S_INT_SYNC_ASSERT     = 4'b0010;
-    localparam S_INT_ASYNC_ASSERT    = 4'b0100;
-    localparam S_INT_MRET            = 4'b1000;
-
-    // 写CSR寄存器状态定义
-    localparam S_CSR_IDLE            = 5'b00001;
-    localparam S_CSR_MSTATUS         = 5'b00010;
-    localparam S_CSR_MEPC            = 5'b00100;
-    localparam S_CSR_MSTATUS_MRET    = 5'b01000;
-    localparam S_CSR_MCAUSE          = 5'b10000;
-
-    reg[3:0] int_state;
-    reg[4:0] csr_state;
-    reg[`INSTR_ADDR_BUS] instr_addr;
-    reg[31:0] cause;
-
-
-    assign hold_flag_o = ((int_state != S_INT_IDLE) | (csr_state != S_CSR_IDLE))? `HOLD_ENA: `HOLD_DISA;
-
-
-    // 中断仲裁逻辑
-    always @ (*) begin
-        if (rst == `RST_ENA) begin
-            int_state = S_INT_IDLE;
-        end else begin
-            if (int_flag != `INT_NONE && global_int_en == `TRUE) begin
-                int_state = S_INT_ASYNC_ASSERT;
-            end else if (instr == `INST_MRET) begin
-                int_state = S_INT_MRET;
-            end else begin
-                int_state = S_INT_IDLE;
+//—— CSR 写状态机（时序逻辑） ——//
+always @(posedge clk) begin
+    if (rst == `RST_ENA) begin
+        csr_state    <= S_CSR_IDLE;
+        saved_mepc   <= `ZERO_WORD;
+        cause        <= `ZERO_WORD;
+    end else begin
+        case (csr_state)
+            S_CSR_IDLE: begin
+                if (int_state == S_INT_SYNC_ASSERT) begin
+                    // 同步异常：保存 PC 和原因
+                    csr_state  <= S_CSR_MEPC;
+                    saved_mepc <= (jump_flag == `JUMP_ENA) ? (jump_addr - 32'h4)
+                                                           : instr_addr_i;
+                    case (instr)
+                        `INSTR_ECALL:  cause <= 32'd11;
+                        `INSTR_EBREAK: cause <= 32'd3;
+                        default:       cause <= 32'd10;
+                    endcase
+                end else if (int_state == S_INT_ASYNC_ASSERT) begin
+                    // 异步中断：保存 PC 和定时器中断原因
+                    csr_state  <= S_CSR_MEPC;
+                    saved_mepc <= instr_addr_i;
+                    cause      <= 32'h80000004;
+                end else if (int_state == S_INT_MRET) begin
+                    // MRET：恢复 mstatus
+                    csr_state <= S_CSR_MSTATUS_MRET;
+                end
             end
-        end
+            S_CSR_MEPC:         csr_state <= S_CSR_MSTATUS;
+            S_CSR_MSTATUS:      csr_state <= S_CSR_MCAUSE;
+            S_CSR_MCAUSE:       csr_state <= S_CSR_IDLE;
+            S_CSR_MSTATUS_MRET: csr_state <= S_CSR_IDLE;
+            default:            csr_state <= S_CSR_IDLE;
+        endcase
     end
+end
 
-    // 写CSR寄存器状态切换
-    always @ (posedge clk) begin
-        if (rst == `RST_ENA) begin
-            csr_state <= S_CSR_IDLE;
-            cause <= `ZERO_WORD;
-            instr_addr <= `ZERO_WORD;
-        end else begin
-            case (csr_state)
-                S_CSR_IDLE: begin
-                    // 同步中断
-                    if (int_state == S_INT_SYNC_ASSERT) begin
-                        csr_state <= S_CSR_MEPC;
-                        // 在中断处理函数里会将中断返回地址加4
-                        if (jump_flag == `JUMP_ENA) begin
-                            instr_addr <= jump_addr - 4'h4;
-                        end else begin
-                            instr_addr <= instr_addr_i;
-                        end
-                        case (instr)
-                            `INST_ECALL: begin
-                                cause <= 32'd11;
-                            end
-                            `INST_EBREAK: begin
-                                cause <= 32'd3;
-                            end
-                            default: begin
-                                cause <= 32'd10;
-                            end
-                        endcase
-                    // 异步中断
-                    end else if (int_state == S_INT_ASYNC_ASSERT) begin
-                        // 定时器中断
-                        cause <= 32'h80000004;
-                        csr_state <= S_CSR_MEPC;
-                        if (jump_flag == `JUMP_ENA) begin
-                            instr_addr <= jump_addr;
-                        end else begin
-                            instr_addr <= instr_addr_i;
-                        end
-                    // 中断返回
-                    end else if (int_state == S_INT_MRET) begin
-                        csr_state <= S_CSR_MSTATUS_MRET;
-                    end
-                end
-                S_CSR_MEPC: begin
-                    csr_state <= S_CSR_MSTATUS;
-                end
-                S_CSR_MSTATUS: begin
-                    csr_state <= S_CSR_MCAUSE;
-                end
-                S_CSR_MCAUSE: begin
-                    csr_state <= S_CSR_IDLE;
-                end
-                S_CSR_MSTATUS_MRET: begin
-                    csr_state <= S_CSR_IDLE;
-                end
-                default: begin
-                    csr_state <= S_CSR_IDLE;
-                end
-            endcase
-        end
-    end
+//—— 写 CSR & 发起中断（时序逻辑） ——//
+always @(posedge clk) begin
+    // 默认清零
+    we         <= `WR_DISA;
+    waddr      <= `ZERO_WORD;
+    raddr      <= `ZERO_WORD;
+    data_o     <= `ZERO_WORD;
+    int_assert <= `INT_NONE;
+    int_addr   <= `ZERO_WORD;
 
-    // 发出中断信号前，先写几个CSR寄存器
-    always @ (posedge clk) begin
-        if (rst == `RST_ENA) begin
-            we <= `WR_DISA;
-            waddr <= `ZERO_WORD;
-            data_o <= `ZERO_WORD;
-        end else begin
-            case (csr_state)
-                // 将mepc寄存器的值设为当前指令地址
-                S_CSR_MEPC: begin
-                    we <= `WR_ENA;
-                    waddr <= {20'h0, `CSR_MEPC};
-                    data_o <= instr_addr;
-                end
-                // 写中断产生的原因
-                S_CSR_MCAUSE: begin
-                    we <= `WR_ENA;
-                    waddr <= {20'h0, `CSR_MCAUSE};
-                    data_o <= cause;
-                end
-                // 关闭全局中断
-                S_CSR_MSTATUS: begin
-                    we <= `WR_ENA;
-                    waddr <= {20'h0, `CSR_MSTATUS};
-                    data_o <= {csr_mstatus[31:4], 1'b0, csr_mstatus[2:0]};
-                end
-                // 中断返回
-                S_CSR_MSTATUS_MRET: begin
-                    we <= `WR_ENA;
-                    waddr <= {20'h0, `CSR_MSTATUS};
-                    data_o <= {csr_mstatus[31:4], csr_mstatus[7], csr_mstatus[2:0]};
-                end
-                default: begin
-                    we <= `WR_DISA;
-                    waddr <= `ZERO_WORD;
-                    data_o <= `ZERO_WORD;
-                end
-            endcase
+    if (rst != `RST_ENA) begin
+        case (csr_state)
+            S_CSR_MEPC: begin
+                we    <= `WR_ENA;
+                waddr <= {20'b0, `CSR_MEPC};
+                data_o<= saved_mepc;
+            end
+            S_CSR_MSTATUS: begin
+                we    <= `WR_ENA;
+                waddr <= {20'b0, `CSR_MSTATUS};
+                // 清除 MIE 位
+                data_o<= {csr_mstatus[31:4], 1'b0, csr_mstatus[2:0]};
+            end
+            S_CSR_MCAUSE: begin
+                we    <= `WR_ENA;
+                waddr <= {20'b0, `CSR_MCAUSE};
+                data_o<= cause;
+            end
+            S_CSR_MSTATUS_MRET: begin
+                we    <= `WR_ENA;
+                waddr <= {20'b0, `CSR_MSTATUS};
+                // 恢复 MIE 位
+                data_o<= {csr_mstatus[31:4], csr_mstatus[7], csr_mstatus[2:0]};
+            end
+            default: ;
+        endcase
+        // 写完 MCAUSE 后，发起中断跳转
+        if (csr_state == S_CSR_MCAUSE) begin
+            int_assert <= `INT_ASSERT;
+            int_addr   <= csr_mtvec;
+        // 写完 MSTATUS_MRET 后，发起返回跳转
+        end else if (csr_state == S_CSR_MSTATUS_MRET) begin
+            int_assert <= `INT_ASSERT;
+            int_addr   <= csr_mepc;
         end
     end
-
-    // 发出中断信号给ex模块
-    always @ (posedge clk) begin
-        if (rst == `RST_ENA) begin
-            int_assert <= `INT_DEASSERT;
-            int_addr <= `ZERO_WORD;
-        end else begin
-            case (csr_state)
-                // 发出中断进入信号.写完mcause寄存器才能发
-                S_CSR_MCAUSE: begin
-                    int_assert <= `INT_ASSERT;
-                    int_addr <= csr_mtvec;
-                end
-                // 发出中断返回信号
-                S_CSR_MSTATUS_MRET: begin
-                    int_assert <= `INT_ASSERT;
-                    int_addr <= csr_mepc;
-                end
-                default: begin
-                    int_assert <= `INT_DEASSERT;
-                    int_addr <= `ZERO_WORD;
-                end
-            endcase
-        end
-    end
+end
 
 endmodule
