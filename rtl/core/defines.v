@@ -127,6 +127,24 @@
 `define TRUE 1'b1
 `define FALSE 1'b0
 
+// 异常返回指令 MRET (缺失的关键定义)
+`define INSTR_MRET 32'h30200073  // MRET 指令机器码
+
+// CSR 寄存器地址总线宽度定义 (缺失)
+`define CSR_ADDR_BUS 11:0
+
+// 加载冒险检测相关 (缺失)
+`define LOAD_HAZARD_ENA 1'b1   // 加载冒险检测有效
+`define LOAD_HAZARD_DISA 1'b0  // 加载冒险检测无效
+
+// 异常原因码 (可能有用但缺失)
+`define ECALL_CAUSE  32'd11    // ECALL 异常原因
+`define EBREAK_CAUSE 32'd3     // EBREAK 异常原因
+`define TIMER_CAUSE  32'h80000004 // 定时器中断原因 (高位置1表示中断)
+
+// 加载冒险检测相关
+`define LOAD_HAZARD_ENA 1'b1   // 加载冒险检测有效
+`define LOAD_HAZARD_DISA 1'b0  // 加载冒险检测无效
 
 
 

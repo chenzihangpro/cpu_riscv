@@ -36,7 +36,10 @@ module ex(
     
     hold_flag_o,    //暂停标志
     jump_flag_o,    //跳转标志
-    jump_addr_o     //跳转目标地址
+    jump_addr_o,    //跳转目标地址
+    
+    instr_o,        //传递指令信息到下一级
+    instr_addr_o
 );
     input wire rst;
     input wire[`INSTR_BUS] instr_i;
@@ -70,6 +73,9 @@ module ex(
     output wire hold_flag_o;
     output wire jump_flag_o;
     output wire[`INSTR_ADDR_BUS] jump_addr_o;
+
+    output reg  [`INSTR_BUS]       instr_o;
+    output reg  [`INSTR_ADDR_BUS]  instr_addr_o;
     
     wire[1:0] mem_raddr_index;      //内存读地址的低2位索引，决定读哪个字节
     wire[1:0] mem_waddr_index;
@@ -138,6 +144,11 @@ module ex(
     assign csr_wr_o = (int_assert_i == `INT_ASSERT)? `WR_DISA: csr_wr_i;
     assign csr_waddr_o = csr_waddr_i;
     
+    always @(*) begin
+        instr_o = instr_i;         // 默认传递指令到下一阶段
+        instr_addr_o = instr_addr_i; // 默认传递指令地址到下一阶段
+    end
+    
     //执行
     always@(*)begin
         reg_wr = reg_wr_i;
@@ -155,7 +166,7 @@ module ex(
                         mem_wdata_o = `ZERO_WORD;
                         mem_raddr_o = `ZERO_WORD;
                         mem_waddr_o = `ZERO_WORD;
-                        reg_waddr = op1_add_op2_res;
+                        reg_wdata = op1_add_op2_res;
                     end
                     //有符号数比较：op1<op2向rd写入1，否则写入0
                     `INSTR_SLTI:begin
@@ -329,7 +340,7 @@ module ex(
                             reg_wdata = reg1_rdata_i >> reg2_rdata_i[4:0];
                         end
                     end
-                    `INSTR_OP:begin
+                    `INSTR_OR:begin
                         jump_flag = `JUMP_DISA;
                         hold_flag = `HOLD_DISA;
                         jump_addr = `ZERO_WORD;
@@ -337,7 +348,7 @@ module ex(
                         mem_raddr_o = `ZERO_WORD;
                         mem_waddr_o = `ZERO_WORD;
                         mem_wr = `WR_DISA;
-                        reg_wdata = op1_i & op2_i;
+                        reg_wdata = op1_i | op2_i;
                     end
                     `INSTR_AND:begin
                         jump_flag = `JUMP_DISA;
@@ -379,7 +390,7 @@ module ex(
                         mem_raddr_o = op1_add_op2_res;  // 计算内存地址: rs1 + offset
                         
                         // 传递给MEM阶段的寄存器写信息
-                        reg_wdata = reg_wdata_i;  // 寄存器写数据在MEM阶段确定，这里只传递
+                        reg_wdata = `ZERO_WORD;  // 寄存器写数据在MEM阶段确定，这里只传递
                     end
                     default:begin
                         jump_flag = `JUMP_DISA;
@@ -531,7 +542,7 @@ module ex(
                         hold_flag = `HOLD_DISA;
                         jump_addr = `ZERO_WORD;
                         mem_wdata_o = `ZERO_WORD;
-                        mem_waddr_o = `ZERO_WORD
+                        mem_waddr_o = `ZERO_WORD;
                         mem_wr = `WR_DISA;
                         mem_raddr_o = `ZERO_WORD;
                         reg_wdata = `ZERO_WORD;

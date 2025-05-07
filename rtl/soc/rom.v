@@ -7,7 +7,7 @@ module rom(
 );
     reg[`MEM_BUS] rom[0:`ROM_NUM - 1];
     initial begin
-        $readmemh("rom_init.hex", rom);  // 加载指令程序
+        $readmemh("../../test_program.hex", rom);  // 加载指令程序
     end
     always @(*) begin
         if (rst == `RST_ENA) begin

@@ -39,10 +39,7 @@ module soc_top_cpu(
 
     // master 1 interface
     wire[`MEM_ADDR_BUS] m1_addr_i;
-    wire[`MEM_BUS] m1_data_i;
     wire[`MEM_BUS] m1_data_o;
-    wire m1_req_i;
-    wire m1_we_i;
 
     // master 2 interface
     wire[`MEM_ADDR_BUS] m2_addr_i;
@@ -58,47 +55,41 @@ module soc_top_cpu(
     wire m3_req_i;
     wire m3_we_i;
 
-    // slave 0 interface
-    wire[`MEM_ADDR_BUS] s0_addr_i;
-    wire[`MEM_BUS] s0_data_i;
+    // slave 0 interface - ROM
+    wire[`MEM_ADDR_BUS] s0_addr_o;
     wire[`MEM_BUS] s0_data_o;
-    wire s0_req_i;
-    wire s0_we_i;
+    wire[`MEM_BUS] s0_data_i;
+    wire s0_we_o;
 
-    // slave 1 interface
-    wire[`MEM_ADDR_BUS] s1_addr_i;
-    wire[`MEM_BUS] s1_data_i;
+    // slave 1 interface - RAM
+    wire[`MEM_ADDR_BUS] s1_addr_o;
     wire[`MEM_BUS] s1_data_o;
-    wire s1_req_i;
-    wire s1_we_i;
+    wire[`MEM_BUS] s1_data_i;
+    wire s1_we_o;
 
-    // slave 2 interface
-    wire[`MEM_ADDR_BUS] s2_addr_i;
-    wire[`MEM_BUS] s2_data_i;
+    // slave 2 interface - TIMER
+    wire[`MEM_ADDR_BUS] s2_addr_o;
     wire[`MEM_BUS] s2_data_o;
-    wire s2_req_i;
-    wire s2_we_i;
+    wire[`MEM_BUS] s2_data_i;
+    wire s2_we_o;
 
-    // slave 3 interface
-    wire[`MEM_ADDR_BUS] s3_addr_i;
-    wire[`MEM_BUS] s3_data_i;
+    // slave 3 interface - UART
+    wire[`MEM_ADDR_BUS] s3_addr_o;
     wire[`MEM_BUS] s3_data_o;
-    wire s3_req_i;
-    wire s3_we_i;
+    wire[`MEM_BUS] s3_data_i;
+    wire s3_we_o;
 
-    // slave 4 interface
-    wire[`MEM_ADDR_BUS] s4_addr_i;
-    wire[`MEM_BUS] s4_data_i;
+    // slave 4 interface - GPIO
+    wire[`MEM_ADDR_BUS] s4_addr_o;
     wire[`MEM_BUS] s4_data_o;
-    wire s4_req_i;
-    wire s4_we_i;
+    wire[`MEM_BUS] s4_data_i;
+    wire s4_we_o;
 
-    // slave 5 interface
-    wire[`MEM_ADDR_BUS] s5_addr_i;
-    wire[`MEM_BUS] s5_data_i;
+    // slave 5 interface - SPI
+    wire[`MEM_ADDR_BUS] s5_addr_o;
     wire[`MEM_BUS] s5_data_o;
-    wire s5_req_i;
-    wire s5_we_i;
+    wire[`MEM_BUS] s5_data_i;
+    wire s5_we_o;
 
     // rib
     wire rib_hold_flag_o;
@@ -139,7 +130,7 @@ module soc_top_cpu(
         end
     end
 
-    // tinyriscv处理器核模块例化
+    // tinyriscv处理器核模块实例化
     top_cpu u_top_cpu(
         .clk(clk),
         .rst(rst),
@@ -157,24 +148,21 @@ module soc_top_cpu(
         .jtag_reg_we_i(jtag_reg_we_o),
         .jtag_reg_data_o(jtag_reg_data_i),
 
-        .rib_hold_flag_i(rib_hold_flag_o),
         .jtag_halt_flag_i(jtag_halt_req_o),
         .jtag_reset_flag_i(jtag_reset_req_o),
 
         .int_i(int_flag)
     );
 
-    // rom模块例化
+    // rom模块实例化
     rom u_rom(
         .clk(clk),
         .rst(rst),
-        .we_i(s0_we_o),
         .addr_i(s0_addr_o),
-        .data_i(s0_data_o),
         .data_o(s0_data_i)
     );
 
-    // ram模块例化
+    // ram模块实例化
     ram u_ram(
         .clk(clk),
         .rst(rst),
@@ -184,7 +172,7 @@ module soc_top_cpu(
         .data_o(s1_data_i)
     );
 
-    // timer模块例化
+    // timer模块实例化
     timer timer_0(
         .clk(clk),
         .rst(rst),
@@ -195,7 +183,7 @@ module soc_top_cpu(
         .int_sig_o(timer0_int)
     );
 
-    // uart模块例化
+    // uart模块实例化
     uart uart_0(
         .clk(clk),
         .rst(rst),
@@ -214,7 +202,7 @@ module soc_top_cpu(
     assign gpio[1] = (gpio_ctrl[3:2] == 2'b01)? gpio_data[1]: 1'bz;
     assign io_in[1] = gpio[1];
 
-    // gpio模块例化
+    // gpio模块实例化
     gpio gpio_0(
         .clk(clk),
         .rst(rst),
@@ -227,7 +215,7 @@ module soc_top_cpu(
         .reg_data(gpio_data)
     );
 
-    // spi模块例化
+    // spi模块实例化
     spi spi_0(
         .clk(clk),
         .rst(rst),
@@ -241,7 +229,7 @@ module soc_top_cpu(
         .spi_clk(spi_clk)
     );
 
-    // rib模块例化
+    // rib模块实例化
     rib u_rib(
         .clk(clk),
         .rst(rst),
@@ -313,7 +301,7 @@ module soc_top_cpu(
         .hold_flag_o(rib_hold_flag_o)
     );
 
-    // 串口下载模块例化
+    // 串口下载模块实例化
     uart_debug u_uart_debug(
         .clk(clk),
         .rst(rst),
@@ -325,7 +313,7 @@ module soc_top_cpu(
         .mem_rdata_i(m3_data_o)
     );
 
-    // jtag模块例化
+    // jtag模块实例化
     jtag_top #(
         .DMI_ADDR_BITS(6),
         .DMI_DATA_BITS(32),

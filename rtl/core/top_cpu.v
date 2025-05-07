@@ -214,7 +214,7 @@ module top_cpu(
         .ex_reg_wr_i             (ex_reg_wr_o),
         .ex_reg_waddr_i          (ex_reg_waddr_o),
         .ex_reg_wdata_i          (ex_reg_wdata_o),
-        .ex_inst_o               (ex_inst_o),
+        .ex_opcode_i             (ex_inst_o[6:0]),
         .mem_reg_wr_i            (mem_reg_wr_o),
         .mem_reg_waddr_i         (mem_reg_waddr_o),
         .mem_reg_wdata_i         (mem_reg_wdata_o),
