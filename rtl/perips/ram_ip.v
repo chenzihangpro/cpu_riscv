@@ -31,21 +31,92 @@ module ram(
 
     );
 
-    // 将sel_i字节选择信号转换为IP核的字节写入掩码
-    wire we;
-    assign we = we_i;
+    // 为实现字节写入，我们需要添加一个两阶段的读-修改-写操作
+    // 第一个周期读取，第二个周期根据读取的数据和字节选择写回
+    
+    // 状态定义
+    localparam STATE_IDLE = 1'b0;
+    localparam STATE_WRITE = 1'b1;
+    
+    // 状态和控制寄存器
+    reg state;
+    reg[`MemAddrBus] addr_r;
+    reg[`MemBus] data_r;
+    reg[3:0] sel_r;
+    reg we_r;
+    
+    // 数据寄存器
+    reg[`MemBus] mem_data;
     
     // IP核输出数据连线
     wire[`MemBus] ip_data_o;
     
+    // 状态机控制逻辑
+    always @(posedge clk) begin
+        if (rst == `RstEnable) begin
+            state <= STATE_IDLE;
+            addr_r <= `ZeroWord;
+            data_r <= `ZeroWord;
+            sel_r <= 4'b0000;
+            we_r <= `WriteDisable;
+            mem_data <= `ZeroWord;
+        end else begin
+            case (state)
+                STATE_IDLE: begin
+                    // 如果是字节写入请求，需要先读取当前内存内容
+                    if (we_i && (sel_i != 4'b1111) && (|sel_i)) begin
+                        state <= STATE_WRITE;
+                        addr_r <= addr_i;
+                        data_r <= data_i;
+                        sel_r <= sel_i;
+                        we_r <= we_i;
+                        mem_data <= ip_data_o; // 保存当前读取的数据
+                    end
+                end
+                
+                STATE_WRITE: begin
+                    state <= STATE_IDLE;
+                end
+            endcase
+        end
+    end
+    
+    // 写数据和写使能信号
+    reg[`MemBus] write_data;
+    reg write_enable;
+    
+    // 组合写数据和控制逻辑
+    always @(*) begin
+        if (state == STATE_WRITE) begin
+            // 处于写入阶段，根据字节选择信号合并数据
+            write_data = mem_data;
+            if (sel_r[0]) write_data[7:0] = data_r[7:0];
+            if (sel_r[1]) write_data[15:8] = data_r[15:8];
+            if (sel_r[2]) write_data[23:16] = data_r[23:16];
+            if (sel_r[3]) write_data[31:24] = data_r[31:24];
+            write_enable = `WriteEnable;
+        end else if (we_i && (sel_i == 4'b1111)) begin
+            // 全字写入，直接使用输入数据
+            write_data = data_i;
+            write_enable = we_i;
+        end else begin
+            // 其他情况不写入
+            write_data = `ZeroWord;
+            write_enable = `WriteDisable;
+        end
+    end
+    
+    // IP存储器地址选择
+    wire[13:0] mem_addr;
+    assign mem_addr = (state == STATE_WRITE) ? addr_r[15:2] : addr_i[15:2];
+    
     // 实例化DRAM IP核 (可读写存储器)
     DRAM u_dram (
-        .a(addr_i[15:2]),      // 输入14位地址线 [13:0]，从处理器地址的[15:2]映射，支持64KB(16384个字)
-        .d(data_i),            // 输入32位写入数据
+        .a(mem_addr),          // 根据状态选择地址
+        .d(write_data),        // 写入数据
         .clk(clk),             // 时钟输入
-        .we(we),               // 写使能信号
-        .we_mask(sel_i),       // 字节写使能掩码
-        .spo(ip_data_o)        // 输出32位读取数据
+        .we(write_enable),     // 写使能信号
+        .spo(ip_data_o)        // 输出数据
     );
     
     // 输出数据逻辑
