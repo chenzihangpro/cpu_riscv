@@ -199,7 +199,7 @@ module tinyriscv_soc_top(
     wire rib_ram_we_o;
     wire[3:0] rib_ram_sel_o;
 
-    // rom模块例化
+    // rom模块例化 - 使用Vivado IP核封装模块
     rom u_rom(
         .clk(clk),
         .rst(rst),
@@ -210,7 +210,7 @@ module tinyriscv_soc_top(
         .data_o(rom_data_o)
     );
 
-    // ram模块例化
+    // ram模块例化 - 使用Vivado IP核封装模块
     ram u_ram(
         .clk(clk),
         .rst(rst),
